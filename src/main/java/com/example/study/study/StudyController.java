@@ -56,10 +56,14 @@ public class StudyController {
      *
      * 기능        상세 · 등록 · 수정 · 삭제 · 마감 주소를 만듦
      *             작성자를 본문으로 받지 않고 @AuthenticationPrincipal 로 받음
-     *             등록은 201 과 Location 머리 · 삭제는 204
-     * 활용메소드  StudyService.findById()   TODO 22 · 같은 담당
-     *             StudyService.create()     TODO 21 · 같은 담당
-     */
+     *             등록은 201 과 Location 머리 · 삭제는 204 */
+
+     /* 활용메소드  StudyService.findById()   TODO 22 · 같은 담당 */
+     @GetMapping("/{id}")
+     public StudyDetailResponse findById(@PathVariable Long id) {
+         return studyService.findById(id);
+     }
+     /*             StudyService.create()     TODO 21 · 같은 담당 */
     @PostMapping
     public ResponseEntity<StudyDetailResponse> create(@Valid @RequestBody StudyRequest request,
                                                       @AuthenticationPrincipal Long memberId) {
