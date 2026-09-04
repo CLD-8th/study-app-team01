@@ -43,7 +43,10 @@ public class ReviewService {
      * 반환형태    List<ReviewResponse>
      * 동작결과    EP-12 · 토큰 없이도 200
      */
-        throw new UnsupportedOperationException("TODO 52");
+        return reviewRepository.findByStudyPostIdOrderByCreatedAtAsc(studyPostId)
+                .stream()
+                .map(ReviewResponse::from)
+                .toList();
     }
 
     /**
