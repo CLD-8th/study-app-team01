@@ -23,7 +23,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
      * 반환형태    List<Application>
      * 동작결과    신청 목록에서 신청자 별명이 조회 하나로 나옴
      */
-
+    @EntityGraph(attributePaths = {"applicant"})
+    List<Application> findByStudyPostIdOrderByCreatedAtAsc(Long studyPostId);
     /**
      * 내 신청 목록.
      *

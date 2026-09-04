@@ -95,8 +95,22 @@ public class ApplicationService {
      * 반환형태    List<ApplicationResponse>
      * 동작결과    EP-09 · 모집자는 200 · 남이면 403 FORBIDDEN
      */
-        throw new UnsupportedOperationException("TODO 42");
+        StudyPost studyPost = studyService.getWithWriter(studyPostId);
+
+        if (!studyPost.isWrittenBy(memberId)) {
+            throw new BusinessException(
+                    ErrorCode.FORBIDDEN,
+                    "모집자만 신청 목록을 조회할 수 있습니다."
+            );
+        }
+
+        return applicationRepository
+                .findByStudyPostIdOrderByCreatedAtAsc(studyPostId)
+                .stream()
+                .map(ApplicationResponse::from)
+                .toList();
     }
+
 
     public List<ApplicationResponse> findMine(Long memberId) {
     /*
@@ -133,7 +147,33 @@ public class ApplicationService {
      * 동작결과    EP-10 · 상태가 ACCEPTED · 정원이 차면 400 CAPACITY_EXCEEDED
      *             마지막 자리를 채우면 모집글 상태가 CLOSED
      */
-        throw new UnsupportedOperationException("TODO 43");
+        // 1. 수락 가능한 신청인지 확인
+        Application application = processable(applicationId, memberId);
+
+        // 2. 현재 수락된 인원 확인
+        long acceptedCount = applicationRepository.countByStudyPostIdAndStatus(
+                application.getStudyPost().getId(),
+                ApplicationStatus.ACCEPTED
+        );
+
+        // 3. 정원이 이미 꽉 찼으면 수락하지 않음
+        if (acceptedCount >= application.getStudyPost().getCapacity()) {
+            throw new BusinessException(
+                    ErrorCode.CAPACITY_EXCEEDED,
+                    "모집 정원이 가득 찼습니다."
+            );
+        }
+
+        // 4. 신청 수락
+        application.accept();
+
+        // 5. 이번 수락으로 정원이 꽉 차면 모집글 마감
+        if (acceptedCount + 1 >= application.getStudyPost().getCapacity()) {
+            application.getStudyPost().close();
+        }
+
+        // 6. 응답 DTO로 변환
+        return ApplicationResponse.from(application);
     }
 
     /**
@@ -153,7 +193,14 @@ public class ApplicationService {
      * 반환형태    ApplicationResponse
      * 동작결과    EP-11 · 상태가 REJECTED · 처리된 건은 400 ALREADY_PROCESSED
      */
-        throw new UnsupportedOperationException("TODO 44");
+        // 1. 모집자 본인인지 + 아직 처리되지 않은 신청인지 확인
+        Application application = processable(applicationId, memberId);
+
+        // 2. 신청 상태를 REJECTED로 변경
+        application.reject();
+
+        // 3. 응답 DTO로 변환
+        return ApplicationResponse.from(application);
     }
 
     private Application processable(Long applicationId, Long memberId) {
@@ -168,8 +215,27 @@ public class ApplicationService {
      * 반환형태    Application
      * 동작결과    남의 글 403 · 처리된 건 400 ALREADY_PROCESSED
      */
-        throw new UnsupportedOperationException("TODO 45");
-    }
+// 1. 신청 조회
+        Application application = getWithStudyPost(applicationId);
+
+        // 2. 모집자 본인인지 확인
+        if (!application.getStudyPost().isWrittenBy(memberId)) {
+            throw new BusinessException(
+                    ErrorCode.FORBIDDEN,
+                    "모집자만 신청을 처리할 수 있습니다."
+            );
+        }
+
+        // 3. 아직 대기 상태인지 확인
+        if (!application.isPending()) {
+            throw new BusinessException(
+                    ErrorCode.ALREADY_PROCESSED,
+                    "이미 처리된 신청입니다."
+            );
+        }
+
+        // 4. 모든 조건을 통과하면 신청 반환
+        return application;    }
 
     private Application getWithStudyPost(Long id) {
         // 제공 · 담당 4 도 이 메서드를 씀.
