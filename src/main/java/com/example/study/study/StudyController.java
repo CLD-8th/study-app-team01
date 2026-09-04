@@ -92,8 +92,17 @@ public class StudyController {
                  id, request.title(), request.content(), request.capacity(), request.deadline(), memberId);
      }
      //             StudyService.delete()     TODO 24 · 같은 담당
-     /*             StudyService.close()      TODO 25 · 같은 담당
-     *             ResponseEntity.created()  Location 머리를 붙임
+     @DeleteMapping("/{id}")
+     public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal Long memberId) {
+         studyService.delete(id, memberId);
+         return ResponseEntity.noContent().build();
+     }
+     //             StudyService.close()      TODO 25 · 같은 담당
+     @PatchMapping("/{id}/close")
+    public StudyDetailResponse close(@PathVariable Long id, @AuthenticationPrincipal Long memberId) {
+        return studyService.close(id, memberId);
+    }
+     /*             ResponseEntity.created()  Location 머리를 붙임
      *             URI.create()              주소 문자열을 만듦
      * 반환형태    StudyDetailResponse · 삭제만 없음
      * 동작결과    EP-02 ~ EP-06 · 마감은 PATCH /api/studies/{id}/close

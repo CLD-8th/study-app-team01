@@ -175,7 +175,13 @@ public class StudyService {
      * 반환형태    없음
      * 동작결과    EP-05 · 204 · 남의 글은 403 FORBIDDEN
      */
-        throw new UnsupportedOperationException("TODO 24");
+        StudyPost studyPost = getWithWriter(id);
+
+        if (!studyPost.isWrittenBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "작성자만 삭제할 수 있습니다.");
+        }
+
+        studyPostRepository.delete(studyPost);
     }
 
     /**
@@ -197,7 +203,19 @@ public class StudyService {
      * 반환형태    StudyDetailResponse
      * 동작결과    EP-06 · 상태가 CLOSED · 이미 마감이면 400 STUDY_CLOSED
      */
-        throw new UnsupportedOperationException("TODO 25");
+        StudyPost studyPost = getWithWriter(id);
+
+        if (!studyPost.isWrittenBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "작성자만 마감할 수 있습니다.");
+        }
+        if (!studyPost.isRecruiting()) {
+            throw new BusinessException(ErrorCode.STUDY_CLOSED, "이미 마감된 모집글입니다.");
+        }
+
+        studyPost.close();
+        long acceptedCount = countAccepted(id);
+
+        return StudyDetailResponse.of(studyPost, acceptedCount);
     }
 
     public List<StudyListResponse> findMine(Long memberId) {
