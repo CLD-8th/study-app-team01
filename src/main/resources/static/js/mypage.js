@@ -17,6 +17,13 @@ async function loadProfile() {
      *             조각은 parts.html 의 "마이페이지 내 정보"
      * 동작결과    EP-15 · 토큰이 없으면 로그인 화면으로 보내짐
      */
+    const member = await api.get('/api/members/me');
+
+    document.getElementById('profile').innerHTML = `
+        <div>이메일 &nbsp; ${escapeHtml(member.email)}</div>
+        <div>별명 &nbsp; <b>${escapeHtml(member.nickname)}</b></div>
+        <div>가입일 &nbsp; ${member.createdAt.substring(0, 10)}</div>
+    `;
 }
 
 async function loadMyStudies() {
@@ -33,7 +40,32 @@ async function loadMyStudies() {
      *             조각은 parts.html 의 "마이페이지 목록 항목"
      * 동작결과    EP-16 · 제목을 누르면 상세로 이동
      */
+    const studies = await api.get('/api/members/me/studies');
+
+    document.getElementById('study-count').textContent = `${studies.length}건`;
+
+    const listEl = document.getElementById('my-studies');
+    listEl.innerHTML = '';
+
+    if (studies.length === 0) {
+        listEl.innerHTML = '<div class="empty">등록한 모집글이 없습니다</div>';
+        return;
+    }
+
+    studies.forEach(post => {
+        const item = document.createElement('div');
+        item.className = 'item' + (post.status === 'CLOSED' ? ' closed' : '');
+        item.innerHTML = `
+            <div class="item-title">
+                <a href="/study.html?id=${post.id}">${escapeHtml(post.title)}</a>
+                ${badge(post.status)}
+            </div>
+            <span class="item-meta">${post.acceptedCount} / ${post.capacity}명</span>
+        `;
+        listEl.appendChild(item);
+    });
 }
+
 
 async function loadMyApplications() {
     /*
@@ -48,7 +80,32 @@ async function loadMyApplications() {
      * 그릴위치    SC-04 · #application-count 와 #my-applications
      * 동작결과    EP-17 · 취소는 상세 화면에서만 함
      */
+    const applications = await api.get('/api/members/me/applications');
+
+    document.getElementById('application-count').textContent = `${applications.length}건`;
+
+    const listEl = document.getElementById('my-applications');
+    listEl.innerHTML = '';
+
+    if (applications.length === 0) {
+        listEl.innerHTML = '<div class="empty">신청한 모집글이 없습니다</div>';
+        return;
+    }
+
+    applications.forEach(app => {
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.innerHTML = `
+            <div class="item-title">
+                <a href="/study.html?id=${app.studyPostId}">${escapeHtml(app.studyPostTitle)}</a>
+                ${badge(app.status)}
+            </div>
+            <span class="item-meta">${shortDate(app.createdAt)}에 신청함</span>
+        `;
+        listEl.appendChild(item);
+    });
 }
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     if (!requireLogin()) return;
@@ -56,3 +113,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadMyStudies();
     await loadMyApplications();
 });
+
