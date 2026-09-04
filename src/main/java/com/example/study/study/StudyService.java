@@ -93,7 +93,10 @@ public class StudyService {
      * 반환형태    StudyDetailResponse
      * 동작결과    EP-02 · 200 과 상세 · 없는 번호는 404 NOT_FOUND
      */
-        throw new UnsupportedOperationException("TODO 22");
+        StudyPost studyPost = getWithWriter(id);
+        long acceptedCount = countAccepted(id);
+
+        return StudyDetailResponse.of(studyPost, acceptedCount);
     }
 
     /**
