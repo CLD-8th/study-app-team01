@@ -50,6 +50,17 @@ public class StudyController {
      * 반환형태    PageResponse<StudyListResponse> · TODO.md 응답 형태 참고
      * 동작결과    EP-01 · GET /api/studies?page=0&size=10 이 쪽 형태로 응답
      */
+    @GetMapping
+    public PageResponse<StudyListResponse> findAll(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) StudyStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+        var result = studyService.findAll(keyword, status, pageable);
+        return PageResponse.of(result,study -> study);
+    }
 
     /*
      * TODO 26 · 모집글 주소 다섯
