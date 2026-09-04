@@ -72,9 +72,16 @@ public class StudyController {
 
         return ResponseEntity.created(URI.create("/api/studies/" + response.id())).body(response);
     }
-     /*             StudyService.update()     TODO 23 · 같은 담당
-     *             StudyService.delete()     TODO 24 · 같은 담당
-     *             StudyService.close()      TODO 25 · 같은 담당
+     //             StudyService.update()     TODO 23 · 같은 담당
+     @PutMapping("/{id}")
+     public StudyDetailResponse update(@PathVariable Long id,
+                                       @Valid @RequestBody StudyRequest request,
+                                       @AuthenticationPrincipal Long memberId) {
+         return studyService.update(
+                 id, request.title(), request.content(), request.capacity(), request.deadline(), memberId);
+     }
+     //             StudyService.delete()     TODO 24 · 같은 담당
+     /*             StudyService.close()      TODO 25 · 같은 담당
      *             ResponseEntity.created()  Location 머리를 붙임
      *             URI.create()              주소 문자열을 만듦
      * 반환형태    StudyDetailResponse · 삭제만 없음
