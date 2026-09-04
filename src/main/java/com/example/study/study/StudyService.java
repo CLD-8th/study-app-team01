@@ -51,7 +51,13 @@ public class StudyService {
      * 반환형태    StudyDetailResponse · TODO.md 응답 형태 참고
      * 동작결과    EP-03 · 201 과 Location 머리 · 상태는 RECRUITING
      */
-        throw new UnsupportedOperationException("TODO 21");
+        Member writer = memberService.getMember(memberId);
+
+        StudyPost studyPost = new StudyPost(title, content, capacity, deadline, writer);
+
+        StudyPost saved = studyPostRepository.save(studyPost);
+
+        return StudyDetailResponse.of(saved, 0L);
     }
 
     /**
