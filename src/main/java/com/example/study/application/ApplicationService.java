@@ -57,15 +57,32 @@ public class ApplicationService {
      *             마감 400 STUDY_CLOSED · 마감일 경과 400 DEADLINE_PASSED
      *             중복 400 DUPLICATE_APPLICATION
      */
-        throw new UnsupportedOperationException("TODO 31");
-    }
+        public ApplicationResponse apply(Long studyPostId, String message, Long memberId) {
+            StudyPost study = studyService.getWithWriter(studyPostId);
+            if (study.isWrittenBy(memberId)) {
+                throw new BusinessException(ErrorCode.SELF_APPLICATION);
+            }
+            if (!study.isRecruiting()) {
+                throw new BusinessException(ErrorCode.STUDY_CLOSED);
+            }
+            if (study.isDeadlinePassed()) {
+                throw new BusinessException(ErrorCode.DEADLINE_PASSED);
+            }
+            if (applicationRepository.findByStudyPostIdAndApplicantId(studyPostId, memberId).isPresent()) {
+                throw new BusinessException(ErrorCode.DUPLICATE_APPLICATION);
+            }
+            Member applicant = memberService.getMember(memberId);
+            Application application = new Application(study, applicant, message);
+            return ApplicationResponse.from(applicationRepository.save(application));
+        }
 
-    /**
-     * 신청 취소.
-     *
-     * 대기 상태만 취소 가능함. 수락된 신청을 취소하면
-     * 마감된 모집글에 빈자리가 생기며 되돌릴 방법이 없음.
-     */
+
+        /**
+         * 신청 취소.
+         *
+         * 대기 상태만 취소 가능함. 수락된 신청을 취소하면
+         * 마감된 모집글에 빈자리가 생기며 되돌릴 방법이 없음.
+         */
     @Transactional
     public void cancel(Long applicationId, Long memberId) {
     /*
@@ -80,7 +97,14 @@ public class ApplicationService {
      * 반환형태    없음
      * 동작결과    EP-08 · 204 · 남의 신청 403 · 처리된 건 400 ALREADY_PROCESSED
      */
-        throw new UnsupportedOperationException("TODO 32");
+        Application application = getWithStudyPost(applicationId);
+        if (!application.isAppliedBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        if (!application.isPending()) {
+            throw new BusinessException(ErrorCode.ALREADY_PROCESSED);
+        }
+        applicationRepository.delete(application);
     }
 
     public List<ApplicationResponse> findByStudy(Long studyPostId, Long memberId) {
