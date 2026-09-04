@@ -51,7 +51,13 @@ public class StudyService {
      * 반환형태    StudyDetailResponse · TODO.md 응답 형태 참고
      * 동작결과    EP-03 · 201 과 Location 머리 · 상태는 RECRUITING
      */
-        throw new UnsupportedOperationException("TODO 21");
+        Member writer = memberService.getMember(memberId);
+
+        StudyPost studyPost = new StudyPost(title, content, capacity, deadline, writer);
+
+        StudyPost saved = studyPostRepository.save(studyPost);
+
+        return StudyDetailResponse.of(saved, 0L);
     }
 
     /**
@@ -78,6 +84,21 @@ public class StudyService {
         );
     }
 
+    /*
+     * TODO 11 · 모집글 목록 조회
+     *
+     * 기능        검색어가 비어 있으면 조건에서 빼고 조회함
+     *             수락 인원을 건마다 세지 않고 식별자 묶음으로 한 번에 세어 붙임
+     * 활용메소드  StudyPostRepository.search()   제공됨
+     *             StudyService.acceptedCounts()  같은 클래스 · 제공됨
+     *             StudyListResponse.of()         제공됨
+     *             Page.map()                     쪽 객체의 내용만 변환
+     * 반환형태    Page<StudyListResponse>
+     * 동작결과    EP-01 · 목록이 열 건이어도 조회 구문은 둘
+     */
+
+
+
     public StudyDetailResponse findById(Long id) {
     /*
      * TODO 22 · 모집글 상세 조회
@@ -89,7 +110,10 @@ public class StudyService {
      * 반환형태    StudyDetailResponse
      * 동작결과    EP-02 · 200 과 상세 · 없는 번호는 404 NOT_FOUND
      */
-        throw new UnsupportedOperationException("TODO 22");
+        StudyPost studyPost = getWithWriter(id);
+        long acceptedCount = countAccepted(id);
+
+        return StudyDetailResponse.of(studyPost, acceptedCount);
     }
 
     /**
@@ -120,7 +144,23 @@ public class StudyService {
      * 동작결과    EP-04 · 남의 글 403 FORBIDDEN · 마감된 글 400 STUDY_CLOSED
      *             정원 축소 400 CAPACITY_BELOW_ACCEPTED
      */
-        throw new UnsupportedOperationException("TODO 23");
+        StudyPost studyPost = getWithWriter(id);
+
+        if (!studyPost.isWrittenBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "작성자만 수정할 수 있습니다.");
+        }
+        if (!studyPost.isRecruiting()) {
+            throw new BusinessException(ErrorCode.STUDY_CLOSED, "마감된 모집글은 수정할 수 없습니다.");
+        }
+
+        long acceptedCount = countAccepted(id);
+        if (capacity < acceptedCount) {
+            throw new BusinessException(ErrorCode.CAPACITY_BELOW_ACCEPTED, "정원은 현재 수락 인원보다 작을 수 없습니다.");
+        }
+
+        studyPost.update(title, content, capacity, deadline);
+
+        return StudyDetailResponse.of(studyPost, acceptedCount);
     }
 
     @Transactional
