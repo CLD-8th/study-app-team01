@@ -1,9 +1,11 @@
 package com.example.study.review;
 
+import jakarta.persistence.Entity;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
@@ -21,4 +23,15 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * 반환형태    List<Review> · boolean
      * 동작결과    후기 목록이 조회 하나로 나옴 · 두 번째 작성이 400 으로 막힘
      */
+    @EntityGraph(attributePaths = {"writer"})
+    List<Review> findByStudyPostIdOrderByCreatedAtAsc(Long studyPostId);
+
+
+    boolean existsByStudyPostIdAndWriterId(Long studyPostId, Long writerId);
+
+
+
+
+
+
 }
