@@ -127,7 +127,23 @@ public class StudyService {
      * 동작결과    EP-04 · 남의 글 403 FORBIDDEN · 마감된 글 400 STUDY_CLOSED
      *             정원 축소 400 CAPACITY_BELOW_ACCEPTED
      */
-        throw new UnsupportedOperationException("TODO 23");
+        StudyPost studyPost = getWithWriter(id);
+
+        if (!studyPost.isWrittenBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "작성자만 수정할 수 있습니다.");
+        }
+        if (!studyPost.isRecruiting()) {
+            throw new BusinessException(ErrorCode.STUDY_CLOSED, "마감된 모집글은 수정할 수 없습니다.");
+        }
+
+        long acceptedCount = countAccepted(id);
+        if (capacity < acceptedCount) {
+            throw new BusinessException(ErrorCode.CAPACITY_BELOW_ACCEPTED, "정원은 현재 수락 인원보다 작을 수 없습니다.");
+        }
+
+        studyPost.update(title, content, capacity, deadline);
+
+        return StudyDetailResponse.of(studyPost, acceptedCount);
     }
 
     @Transactional
