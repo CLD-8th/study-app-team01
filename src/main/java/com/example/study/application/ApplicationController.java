@@ -52,4 +52,33 @@ public class ApplicationController {
      * 반환형태    List<ApplicationResponse> · ApplicationResponse
      * 동작결과    EP-09 · EP-10 · EP-11
      */
+    @GetMapping("/api/studies/{studyId}/applications")
+    public ResponseEntity<List<ApplicationResponse>> findByStudy(
+            @PathVariable Long studyId,
+            @AuthenticationPrincipal Long memberId) {
+
+        return ResponseEntity.ok(
+                applicationService.findByStudy(studyId, memberId)
+        );
+    }
+
+    @PatchMapping("/api/applications/{id}/accept")
+    public ResponseEntity<ApplicationResponse> accept(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long memberId) {
+
+        return ResponseEntity.ok(
+                applicationService.accept(id, memberId)
+        );
+    }
+
+    @PatchMapping("/api/applications/{id}/reject")
+    public ResponseEntity<ApplicationResponse> reject(
+            @PathVariable Long id,
+            @AuthenticationPrincipal Long memberId) {
+
+        return ResponseEntity.ok(
+                applicationService.reject(id, memberId)
+        );
+    }
 }
