@@ -67,6 +67,23 @@ public class StudyService {
      * 식별자 묶음을 한 번에 세어 붙임.
      */
     public Page<StudyListResponse> findAll(String keyword, StudyStatus status, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            keyword = null;
+        }
+
+        Page<StudyPost> posts = studyPostRepository.search(keyword, status, pageable);
+
+        List<Long> postIds = posts.getContent().stream()
+                .map(StudyPost::getId)
+                .toList();
+
+        Map<Long, Long> acceptedCounts = acceptedCounts(posts.getContent().stream().map(StudyPost::getId).toList());
+
+        return posts.map(post ->
+                StudyListResponse.of(post, acceptedCounts.getOrDefault(post.getId(), 0L))
+        );
+    }
+
     /*
      * TODO 11 · 모집글 목록 조회
      *
@@ -79,8 +96,8 @@ public class StudyService {
      * 반환형태    Page<StudyListResponse>
      * 동작결과    EP-01 · 목록이 열 건이어도 조회 구문은 둘
      */
-        throw new UnsupportedOperationException("TODO 11");
-    }
+
+
 
     public StudyDetailResponse findById(Long id) {
     /*
