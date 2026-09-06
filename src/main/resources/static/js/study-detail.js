@@ -21,6 +21,39 @@ StudyPage.register(async function renderDetail() {
      * 동작결과    남의 글에서는 단추가 보이지 않음
      */
 
+    const study = StudyPage.study;
+    const panel = document.getElementById('study-detail');
+    panel.classList.remove('hidden');
+
+    let buttons = '';
+    if (StudyPage.isOwner()) {
+        buttons = '<div class="actions">';
+        if (study.status === 'RECRUITING') {
+            buttons += '<button id="edit">수정</button>';
+        }
+        buttons += '<button class="danger" id="remove">삭제</button>';
+        if (study.status === 'RECRUITING') {
+            buttons += '<button class="primary" id="close">모집 마감</button>';
+        }
+        buttons += '</div>';
+    }
+
+    panel.innerHTML =
+        '<div class="card-head">' +
+        '  <div class="card-title" style="font-size:19px;">' + escapeHtml(study.title) + '</div>' +
+        badge(study.status) +
+        '</div>' +
+        '<div class="item-meta" style="margin-bottom:12px;">' +
+        '  <span>' + escapeHtml(study.writerNickname) + '</span>' +
+        '  <span>' + study.acceptedCount + ' / ' + study.capacity + '명</span>' +
+        '  <span>~ ' + shortDate(study.deadline) + '</span>' +
+        '  <span>' + dateTime(study.createdAt) + '</span>' +
+        '</div>' +
+        '<div style="font-size:13px; line-height:1.7; white-space:pre-wrap;">' +
+        escapeHtml(study.content) + '</div>' + buttons;
+
+    if (!StudyPage.isOwner()) return;
+
     /*
      * TODO 28 · 단추 동작
      *
@@ -35,4 +68,23 @@ StudyPage.register(async function renderDetail() {
      * 그릴위치    SC-02 · #edit · #remove · #close
      * 동작결과    마감을 누르면 배지가 마감으로 바뀌고 신청 구획이 사라짐
      */
+    const edit = document.getElementById('edit');
+    if (edit) {
+        edit.addEventListener('click', () => location.href = '/form.html?id=' + StudyPage.id);
+    }
+
+    document.getElementById('remove').addEventListener('click', async () => {
+        if (!confirm('삭제하시겠습니까?')) return;
+        await api.del('/api/studies/' + StudyPage.id);
+        location.href = '/index.html';
+    });
+
+    const close = document.getElementById('close');
+    if (close) {
+        close.addEventListener('click', async () => {
+            if (!confirm('모집을 마감하시겠습니까?')) return;
+            await api.patch('/api/studies/' + StudyPage.id + '/close');
+            await StudyPage.reload();
+        });
+    }
 });
