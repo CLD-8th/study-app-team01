@@ -40,22 +40,6 @@ public class ApplicationController {
      * 동작결과    EP-07 · EP-08
      */
 
-    @PostMapping("/api/studies/{studyId}/applications")
-    public ResponseEntity<ApplicationResponse> apply(
-            @PathVariable Long studyId,
-            @Valid @RequestBody ApplicationRequest request,
-            @AuthenticationPrincipal Long memberId) {
-        ApplicationResponse created = applicationService.apply(studyId, request.message(), memberId);
-        return ResponseEntity.status(201).body(created);
-    }
-
-    @DeleteMapping("/api/applications/{id}")
-    public ResponseEntity<Void> cancel(@PathVariable Long id,
-                                       @AuthenticationPrincipal Long memberId) {
-        applicationService.cancel(id, memberId);
-        return ResponseEntity.noContent().build();
-    }
-
     /*
      * TODO 46 · 신청 처리 주소 셋
      *
