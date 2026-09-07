@@ -38,26 +38,27 @@ public class ApplicationService {
      */
     @Transactional
     public ApplicationResponse apply(Long studyPostId, String message, Long memberId) {
-    /*
-     * TODO 31 · 신청
-     *
-     * 기능        대상 확인 → 자기 모집글 → 상태 → 마감일 → 중복 순서로 판단
-     *             순서가 바뀌면 없는 모집글에 다른 판단을 시도하게 됨
-     *             상태가 마감인 것과 마감일이 지난 것은 사유가 다름
-     *             거절된 신청도 중복으로 봄 · 재신청을 허용하지 않기로 정함
-     * 활용메소드  StudyService.getWithWriter()      제공됨
-     *             StudyPost.isWrittenBy()          엔티티 · 제공됨
-     *             StudyPost.isRecruiting()         엔티티 · 제공됨
-     *             StudyPost.isDeadlinePassed()     엔티티 · 제공됨
-     *             ApplicationRepository 의 조회 규약  제공됨
-     *             MemberService.getMember()        제공됨
-     *             ApplicationResponse.from()       제공됨
-     * 반환형태    ApplicationResponse · TODO.md 응답 형태 참고
-     * 동작결과    EP-07 · 201 · 자기 글 400 SELF_APPLICATION
-     *             마감 400 STUDY_CLOSED · 마감일 경과 400 DEADLINE_PASSED
-     *             중복 400 DUPLICATE_APPLICATION
-     */
-        throw new UnsupportedOperationException("TODO 31");
+        StudyPost post = studyService.getWithWriter(studyPostId);
+
+        if (post.isWrittenBy(memberId)) {
+            throw new BusinessException(ErrorCode.SELF_APPLICATION, "자기 모집글에는 신청 불가");
+        }
+        if (!post.isRecruiting()) {
+            throw new BusinessException(ErrorCode.STUDY_CLOSED, "마감된 모집글");
+        }
+        if (post.isDeadlinePassed()) {
+            throw new BusinessException(ErrorCode.DEADLINE_PASSED, "마감일이 지남");
+        }
+        // 거절된 신청도 확인 대상임. 거절 후 재신청을 허용하지 않기로 정함.
+        if (applicationRepository.findByStudyPostIdAndApplicantId(studyPostId, memberId).isPresent()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_APPLICATION, "이미 신청한 모집글");
+        }
+
+        Member applicant = memberService.getMember(memberId);
+        Application saved = applicationRepository.save(new Application(post, applicant, message));
+
+        log.info("신청 등록: id={} study={}", saved.getId(), studyPostId);
+        return ApplicationResponse.from(saved);
     }
 
     /**
@@ -68,61 +69,32 @@ public class ApplicationService {
      */
     @Transactional
     public void cancel(Long applicationId, Long memberId) {
-    /*
-     * TODO 32 · 신청 취소
-     *
-     * 기능        신청자 본인인지 → 대기 상태인지 확인한 뒤 행을 지움
-     *             수락된 신청을 취소하면 마감된 글에 빈자리가 생기며 되돌릴 수 없음
-     * 활용메소드  ApplicationService.getWithStudyPost()   같은 클래스 · 제공됨
-     *             Application.isAppliedBy()              엔티티 · 제공됨
-     *             Application.isPending()                엔티티 · 제공됨
-     *             ApplicationRepository.delete()         제공됨
-     * 반환형태    없음
-     * 동작결과    EP-08 · 204 · 남의 신청 403 · 처리된 건 400 ALREADY_PROCESSED
-     */
-        throw new UnsupportedOperationException("TODO 32");
+        Application application = getWithStudyPost(applicationId);
+
+        if (!application.isAppliedBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "신청자만 취소 가능");
+        }
+        if (!application.isPending()) {
+            throw new BusinessException(ErrorCode.ALREADY_PROCESSED, "이미 처리된 신청");
+        }
+
+        applicationRepository.delete(application);
+        log.info("신청 취소: id={}", applicationId);
     }
 
     public List<ApplicationResponse> findByStudy(Long studyPostId, Long memberId) {
-    /*
-     * TODO 42 · 신청 목록 조회
-     *
-     * 기능        모집자 본인인지 확인한 뒤 오래된 순으로 조회함
-     * 활용메소드  StudyService.getWithWriter()        제공됨
-     *             StudyPost.isWrittenBy()             엔티티 · 제공됨
-     *             ApplicationRepository 의 목록 규약     TODO 41 · 같은 담당
-     *             ApplicationResponse.from()          제공됨
-     * 반환형태    List<ApplicationResponse>
-     * 동작결과    EP-09 · 모집자는 200 · 남이면 403 FORBIDDEN
-     */
-        StudyPost studyPost = studyService.getWithWriter(studyPostId);
+        StudyPost post = studyService.getWithWriter(studyPostId);
 
-        if (!studyPost.isWrittenBy(memberId)) {
-            throw new BusinessException(
-                    ErrorCode.FORBIDDEN,
-                    "모집자만 신청 목록을 조회할 수 있습니다."
-            );
+        if (!post.isWrittenBy(memberId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "모집자만 조회 가능");
         }
-
-        return applicationRepository
-                .findByStudyPostIdOrderByCreatedAtAsc(studyPostId)
-                .stream()
-                .map(ApplicationResponse::from)
-                .toList();
+        return applicationRepository.findByStudyPostIdOrderByIdAsc(studyPostId)
+                .stream().map(ApplicationResponse::from).toList();
     }
 
-
     public List<ApplicationResponse> findMine(Long memberId) {
-    /*
-     * TODO 64 · 내 신청 조회
-     *
-     * 기능        토큰에서 온 식별자로 내 신청을 최신순으로 조회함
-     * 활용메소드  ApplicationRepository 의 내 신청 규약   TODO 62 · 같은 담당
-     *             ApplicationResponse.from()           제공됨
-     * 반환형태    List<ApplicationResponse>
-     * 동작결과    EP-17 · 상세 화면의 신청 구획도 이 값을 씀
-     */
-        throw new UnsupportedOperationException("TODO 64");
+        return applicationRepository.findByApplicantIdOrderByIdDesc(memberId)
+                .stream().map(ApplicationResponse::from).toList();
     }
 
     /**
@@ -133,46 +105,21 @@ public class ApplicationService {
      */
     @Transactional
     public ApplicationResponse accept(Long applicationId, Long memberId) {
-    /*
-     * TODO 43 · 신청 수락
-     *
-     * 기능        처리 가능한지 확인 → 정원 여유 확인 → 수락으로 바꿈
-     *             마지막 자리를 채우면 모집글도 함께 마감함
-     *             별도 처리를 두지 않고 수락 시점에 판단함
-     * 활용메소드  ApplicationService.processable()        같은 클래스 · TODO 45
-     *             ApplicationRepository.count...Status()  제공됨
-     *             Application.accept()                   엔티티 · 제공됨
-     *             StudyPost.close()                      엔티티 · 제공됨
-     * 반환형태    ApplicationResponse
-     * 동작결과    EP-10 · 상태가 ACCEPTED · 정원이 차면 400 CAPACITY_EXCEEDED
-     *             마지막 자리를 채우면 모집글 상태가 CLOSED
-     */
-        // 1. 수락 가능한 신청인지 확인
         Application application = processable(applicationId, memberId);
+        StudyPost post = application.getStudyPost();
 
-        // 2. 현재 수락된 인원 확인
-        long acceptedCount = applicationRepository.countByStudyPostIdAndStatus(
-                application.getStudyPost().getId(),
-                ApplicationStatus.ACCEPTED
-        );
-
-        // 3. 정원이 이미 꽉 찼으면 수락하지 않음
-        if (acceptedCount >= application.getStudyPost().getCapacity()) {
-            throw new BusinessException(
-                    ErrorCode.CAPACITY_EXCEEDED,
-                    "모집 정원이 가득 찼습니다."
-            );
+        long accepted = applicationRepository.countByStudyPostIdAndStatus(
+                post.getId(), ApplicationStatus.ACCEPTED);
+        if (accepted >= post.getCapacity()) {
+            throw new BusinessException(ErrorCode.CAPACITY_EXCEEDED, "정원이 찼습니다");
         }
 
-        // 4. 신청 수락
         application.accept();
 
-        // 5. 이번 수락으로 정원이 꽉 차면 모집글 마감
-        if (acceptedCount + 1 >= application.getStudyPost().getCapacity()) {
-            application.getStudyPost().close();
+        if (accepted + 1 >= post.getCapacity()) {
+            post.close();
+            log.info("정원 충족으로 마감: study={}", post.getId());
         }
-
-        // 6. 응답 DTO로 변환
         return ApplicationResponse.from(application);
     }
 
@@ -183,62 +130,24 @@ public class ApplicationService {
      */
     @Transactional
     public ApplicationResponse reject(Long applicationId, Long memberId) {
-    /*
-     * TODO 44 · 신청 거절
-     *
-     * 기능        처리 가능한지 확인한 뒤 거절로 바꿈
-     *             정원을 확인하지 않음 · 거절은 인원에 영향을 주지 않음
-     * 활용메소드  ApplicationService.processable()   같은 클래스 · TODO 45
-     *             Application.reject()              엔티티 · 제공됨
-     * 반환형태    ApplicationResponse
-     * 동작결과    EP-11 · 상태가 REJECTED · 처리된 건은 400 ALREADY_PROCESSED
-     */
-        // 1. 모집자 본인인지 + 아직 처리되지 않은 신청인지 확인
         Application application = processable(applicationId, memberId);
-
-        // 2. 신청 상태를 REJECTED로 변경
         application.reject();
-
-        // 3. 응답 DTO로 변환
         return ApplicationResponse.from(application);
     }
 
     private Application processable(Long applicationId, Long memberId) {
-    /*
-     * TODO 45 · 처리 가능 확인 공통
-     *
-     * 기능        모집자 본인인지 → 대기 상태인지 확인하고 대상을 돌려줌
-     *             수락과 거절이 같은 확인을 하므로 하나로 묶음
-     * 활용메소드  ApplicationService.getWithStudyPost()   같은 클래스 · 제공됨
-     *             StudyPost.isWrittenBy()                엔티티 · 제공됨
-     *             Application.isPending()                엔티티 · 제공됨
-     * 반환형태    Application
-     * 동작결과    남의 글 403 · 처리된 건 400 ALREADY_PROCESSED
-     */
-// 1. 신청 조회
         Application application = getWithStudyPost(applicationId);
 
-        // 2. 모집자 본인인지 확인
         if (!application.getStudyPost().isWrittenBy(memberId)) {
-            throw new BusinessException(
-                    ErrorCode.FORBIDDEN,
-                    "모집자만 신청을 처리할 수 있습니다."
-            );
+            throw new BusinessException(ErrorCode.FORBIDDEN, "모집자만 처리 가능");
         }
-
-        // 3. 아직 대기 상태인지 확인
         if (!application.isPending()) {
-            throw new BusinessException(
-                    ErrorCode.ALREADY_PROCESSED,
-                    "이미 처리된 신청입니다."
-            );
+            throw new BusinessException(ErrorCode.ALREADY_PROCESSED, "이미 처리된 신청");
         }
-
-        // 4. 모든 조건을 통과하면 신청 반환
-        return application;    }
+        return application;
+    }
 
     private Application getWithStudyPost(Long id) {
-        // 제공 · 담당 4 도 이 메서드를 씀.
         return applicationRepository.findWithStudyPostById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "신청 부재"));
     }
