@@ -39,4 +39,105 @@ StudyPage.register(async function renderApply() {
      *             조각은 parts.html 의 "신청 후 · 대기" 와 "신청 후 · 수락됨"
      * 동작결과    대기 건은 취소 단추가 보이고 수락된 건은 보이지 않음
      */
+    const panel = document.getElementById('apply-panel');
+    panel.innerHTML = '';
+    panel.classList.add('hidden');
+
+    if (!auth.loggedIn || !StudyPage.study || StudyPage.isOwner()
+        || StudyPage.study.status !== 'RECRUITING') {
+        return;
+    }
+
+    panel.classList.remove('hidden');
+    const application = StudyPage.myApplication;
+    const heading = '<div class="card-head"><div class="card-title">신청</div></div>';
+    const errorBox = '<div class="alert alert-error hidden" id="apply-error" role="alert"></div>';
+
+    if (!application) {
+        panel.innerHTML = heading + errorBox +
+            '<form id="apply-form">' +
+            '<div class="field">' +
+            '<label for="apply-message">신청 메시지 (선택, 최대 300자)</label>' +
+            '<textarea id="apply-message" name="message" maxlength="300" ' +
+            'placeholder="신청 메시지"></textarea>' +
+            '</div>' +
+            '<div class="actions">' +
+            '<button type="submit" class="primary" id="apply-submit">신청하기</button>' +
+            '</div>' +
+            '</form>';
+
+        const form = panel.querySelector('#apply-form');
+        const message = panel.querySelector('#apply-message');
+        const button = panel.querySelector('#apply-submit');
+        const error = panel.querySelector('#apply-error');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (button.disabled) return;
+            error.classList.add('hidden');
+            if (message.value.length > 300) {
+                showError(error, { message: '신청 메시지는 300자 이하로 입력해 주세요.' });
+                return;
+            }
+            button.disabled = true;
+            button.textContent = '신청 중…';
+            try {
+                await api.post('/api/studies/' + StudyPage.id + '/applications', {
+                    message: message.value
+                });
+            } catch (cause) {
+                showError(error, cause);
+                button.disabled = false;
+                button.textContent = '신청하기';
+                return;
+            }
+            try {
+                await StudyPage.reload();
+            } catch (cause) {
+                // 신청은 저장됐으므로 재전송하지 않도록 단추를 잠근 채 안내함.
+                button.textContent = '신청 완료';
+                showError(error, { message: '신청은 완료됐지만 화면을 갱신하지 못했습니다. 새로고침해 주세요.' });
+            }
+        });
+        return;
+    }
+
+    // badge()의 HTML에는 정해진 상태만 전달함.
+    const knownStatuses = ['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELED'];
+    const status = knownStatuses.includes(application.status)
+        ? badge(application.status)
+        : escapeHtml(application.status);
+    panel.innerHTML = heading + errorBox +
+        '<div class="item">' +
+        '<div class="item-meta">' + status +
+        '<span>' + escapeHtml(shortDate(application.createdAt)) + '에 신청함</span>' +
+        '</div>' +
+        (application.status === 'PENDING'
+            ? '<button type="button" id="apply-cancel">신청 취소</button>'
+            : '') +
+        '</div>';
+
+    const button = panel.querySelector('#apply-cancel');
+    if (!button) return;
+    const error = panel.querySelector('#apply-error');
+    button.addEventListener('click', async () => {
+        if (button.disabled) return;
+        error.classList.add('hidden');
+        button.disabled = true;
+        button.textContent = '취소 중…';
+        try {
+            await api.del('/api/applications/' + application.id);
+        } catch (cause) {
+            showError(error, cause);
+            button.disabled = false;
+            button.textContent = '신청 취소';
+            return;
+        }
+        try {
+            await StudyPage.reload();
+        } catch (cause) {
+            button.textContent = '취소 완료';
+            showError(error, { message: '취소는 완료됐지만 화면을 갱신하지 못했습니다. 새로고침해 주세요.' });
+        }
+    });
 });
